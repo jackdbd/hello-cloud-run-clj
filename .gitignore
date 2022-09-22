@@ -1,3 +1,11 @@
+# Calva and other tools
+.calva/
 .clj-kondo/
 .cpcache/
 .lsp/
+
+# environment variables
+.envrc
+
+# build artifacts
+target/

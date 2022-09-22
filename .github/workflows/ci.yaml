@@ -1,0 +1,52 @@
+name: 'CI'
+
+on:
+  pull_request:
+  push:
+    branches:
+    - canary
+
+jobs:
+  build-and-test:
+    name: Build & Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        os: [ubuntu-latest]
+
+    steps:
+      - name: 🛎️ Check out repo
+        uses: actions/checkout@v3
+
+      # https://github.com/DeLaGuardo/setup-clojure
+      # It is important to install java before installing clojure tools which needs java
+      # exclusions: babashka, clj-kondo and cljstyle
+      - name: Set up java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '8'
+
+      - name: Install clojure tools
+        uses: DeLaGuardo/setup-clojure@9.5
+        with:
+          # Install just one or all simultaneously
+          # The value must indicate a particular version of the tool, or use 'latest'
+          # to always provision the latest version
+          cli: 1.10.1.693 # Clojure CLI based on tools.deps
+          bb: 0.7.8
+          clj-kondo: 2022.05.31
+          cljstyle: 0.15.0
+          cmd-exe-workaround: 'latest' # Replaces `clojure` with `deps.clj` on Windows
+          zprint: 1.2.3
+
+      - name: Execute clojure code
+        run: clojure -e "(+ 1 1)"
+
+      - name: Get babashka version
+        run: bb --version
+
+      - name: Run all tests
+        run: clojure -M:test

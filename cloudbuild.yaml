@@ -1,0 +1,54 @@
+steps:
+  - id: '🐋 Build container image'
+    name: gcr.io/cloud-builders/docker
+    args:
+      - 'build'
+      - '.'
+      - '--file=Dockerfile'
+      - '--build-arg=APP_NAME=${_CLOUD_RUN_SERVICE_ID}'
+      - '--tag=${_CONTAINER_IMAGE}'
+  
+  - id: '🛫 Push container image to Artifact Registry'
+    name: gcr.io/cloud-builders/docker
+    args: ['push', "${_CONTAINER_IMAGE}"]
+
+  - id: '🚀 Deploy application as a Cloud Run service'
+    name: gcr.io/cloud-builders/gcloud:${_GCLOUD_VERSION}
+    entrypoint: /bin/bash
+    args:
+      - -c
+      - |
+        gcloud run deploy ${_CLOUD_RUN_SERVICE_ID} \
+          --allow-unauthenticated \
+          --image ${_CONTAINER_IMAGE} \
+          --memory ${_MEMORY} \
+          --min-instances 0 \
+          --max-instances 2 \
+          --platform managed \
+          --project ${PROJECT_ID} \
+          --region ${_CLOUD_RUN_REGION} \
+          --set-env-vars ENVIRONMENT=production \
+          --timeout ${_CLOUD_RUN_SERVICE_REQUEST_TIMEOUT} \
+          --update-labels customer=${_CUSTOMER},resource=cloud_run_service \
+          --verbosity warning
+
+# user-defined substitutions and default values
+substitutions:
+  _ARTIFACT_REGISTRY_DOCKER_REPOSITORY_ID: cloud-run-source-deploy
+  _ARTIFACT_REGISTRY_DOCKER_REPOSITORY_LOCATION_ID: europe-west3
+  _CLOUD_RUN_SERVICE_ID: ${_CONTAINER_IMAGE_NAME}
+  _CLOUD_RUN_REGION: europe-west3
+  _CLOUD_RUN_SERVICE_REQUEST_TIMEOUT: 10s
+  _CONTAINER_IMAGE: "${_ARTIFACT_REGISTRY_DOCKER_REPOSITORY_LOCATION_ID}-docker.pkg.dev/${PROJECT_ID}/${_ARTIFACT_REGISTRY_DOCKER_REPOSITORY_ID}/${_CONTAINER_IMAGE_NAME}:${_CONTAINER_IMAGE_TAG}"
+  _CONTAINER_IMAGE_NAME: hello-cloud-run-clj
+  _CONTAINER_IMAGE_TAG: latest
+  _CUSTOMER: personal
+  _GCLOUD_VERSION: latest
+  # M = megabyte, Mi = mebibyte, G = gigabyte, Gi = gibibyte
+  # https://cloud.google.com/run/docs/configuring/memory-limits
+  _MEMORY: 256M
+  # _SERVICE_ACCOUNT: sa-webhooks@prj-kitchen-sink.iam.gserviceaccount.com
+
+options:
+    # https://cloud.google.com/build/docs/configuring-builds/substitute-variable-values#dynamic_substitutions
+    dynamic_substitutions: true
